@@ -551,15 +551,13 @@ def predict_match_ml(models, home, away, h_stat, a_stat, fusion_data):
     p_total = p_home_win + p_draw + p_away_win + 1e-9
     poisson_probs = np.array([p_away_win/p_total, p_draw/p_total, p_home_win/p_total]) * 100
 
-    # 🧬 [V9.0 & V9.1 Extreme Contrarian Ensemble] 아키텍처 결합
-    # V9.1 독식 최적화: 시장이 카오스(혼돈) 상태일 때, 선형 모델(Poisson, LR)은 정배당 회귀 성향이 강해 독식을 방해함.
-    # 따라서 혼돈 상태(Hurst < 0.45)에서는 비선형 스나이핑에 능한 XGBoost에 100% 권한(Weight)을 부여하여 대중(Public)과 반대로 역배를 타격함.
-    if fusion_data['h_hurst'] < 0.45 or fusion_data['a_hurst'] < 0.45:
-        a_prob, d_prob, h_prob = xgb_probs[0], xgb_probs[1], xgb_probs[2]
-    else:
-        a_prob = (xgb_probs[0] * 0.50) + (poisson_probs[0] * 0.35) + (lr_probs[0] * 0.15)
-        d_prob = (xgb_probs[1] * 0.50) + (poisson_probs[1] * 0.35) + (lr_probs[1] * 0.15)
-        h_prob = (xgb_probs[2] * 0.50) + (poisson_probs[2] * 0.35) + (lr_probs[2] * 0.15)
+    # 🧬 [V10.2] 앙상블 — 항상 3모델 결합 (JITTER 독점 제거)
+    # V9.5에서는 JITTER 시 XGBoost 100%였으나, fusion_data가 시뮬레이션값이라
+    # XGBoost 단독 예측이 불안정 → 항상 앙상블 유지
+    a_prob = (xgb_probs[0] * 0.50) + (poisson_probs[0] * 0.35) + (lr_probs[0] * 0.15)
+    d_prob = (xgb_probs[1] * 0.50) + (poisson_probs[1] * 0.35) + (lr_probs[1] * 0.15)
+    h_prob = (xgb_probs[2] * 0.50) + (poisson_probs[2] * 0.35) + (lr_probs[2] * 0.15)
+    
     
     # =========================================================================
     # [V10.2] 온건한 보정 (V9.5의 과격한 60%/30%/35% 삭감 완전 제거)
