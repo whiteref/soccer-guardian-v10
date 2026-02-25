@@ -855,9 +855,10 @@ def main():
             
             def highlight_bg(val):
                 v = str(val)
-                if v == "승": return 'background-color: #ffeaea'
-                elif v == "패": return 'background-color: #eaf2ff'
-                elif v == "무": return 'background-color: #f4eafe'
+                # 🧪 [V10.2] 시인성 개선: 배경색에 맞는 텍스트 색상 명시 (다크모드 대응)
+                if v == "승": return 'background-color: #c3e6cb; color: #155724; font-weight: bold;'
+                elif v == "패": return 'background-color: #f5c6cb; color: #721c24; font-weight: bold;'
+                elif v == "무": return 'background-color: #ffeeba; color: #856404; font-weight: bold;'
                 return ''
 
             st.dataframe(df.style.map(highlight_bg, subset=['XGBoost 픽']), use_container_width=True, height=550)
