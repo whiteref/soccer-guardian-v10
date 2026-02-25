@@ -12,10 +12,14 @@ import xgboost as xgb
 import boto3
 import unicodedata
 from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
+    from webdriver_manager.chrome import ChromeDriverManager
+    HAS_SELENIUM = True
+except ImportError:
+    HAS_SELENIUM = False
 from kalman_guardian_v13 import KalmanGuardianEngine # 📡 [V13 Kalman Guardian]
 from soccer_real_data_engine import (
     fetch_real_match_data, EloRatingSystem, BrierScoreTracker,
@@ -296,28 +300,48 @@ def fetch_understat_core(driver, year='2025', leagues=['EPL', 'La_Liga', 'Bundes
 
 @st.cache_data(ttl=1800)
 def build_v8_knowledge_base():
-    options = get_browser_config()
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    core_stats = fetch_understat_core(driver)
-    driver.quit()
-    
-    if not core_stats:
-        core_stats = { # 백업 데이터
-            "Juventus": {'xG': 1.85, 'xGA': 0.70, 'PPDA': 9.2}, "Como": {'xG': 1.15, 'xGA': 1.35, 'PPDA': 10.8},
-            "Aston Villa": {'xG': 1.65, 'xGA': 1.15, 'PPDA': 10.5}, "Leeds": {'xG': 1.40, 'xGA': 1.25, 'PPDA': 10.2},
-            "Brentford": {'xG': 1.45, 'xGA': 1.50, 'PPDA': 12.0}, "Brighton": {'xG': 1.60, 'xGA': 1.35, 'PPDA': 9.8},
-            "West Ham": {'xG': 1.35, 'xGA': 1.55, 'PPDA': 13.5}, "Bournemouth": {'xG': 1.40, 'xGA': 1.45, 'PPDA': 11.8},
-            "Cagliari": {'xG': 1.05, 'xGA': 1.60, 'PPDA': 14.5}, "Lazio": {'xG': 1.55, 'xGA': 1.10, 'PPDA': 10.2},
-            "Manchester City": {'xG': 2.45, 'xGA': 0.85, 'PPDA': 8.5}, "Newcastle United": {'xG': 1.55, 'xGA': 1.35, 'PPDA': 10.5},
-            "Nottingham Forest": {'xG': 1.10, 'xGA': 1.65, 'PPDA': 14.2}, "Liverpool": {'xG': 2.30, 'xGA': 0.95, 'PPDA': 8.8},
-            "Atalanta": {'xG': 1.95, 'xGA': 1.20, 'PPDA': 9.5}, "Napoli": {'xG': 1.75, 'xGA': 1.05, 'PPDA': 10.1},
-            "Tottenham": {'xG': 1.85, 'xGA': 1.45, 'PPDA': 9.0}, "Arsenal": {'xG': 2.10, 'xGA': 0.80, 'PPDA': 8.2},
-            "AC Milan": {'xG': 1.80, 'xGA': 1.10, 'PPDA': 9.8}, "Parma": {'xG': 1.65, 'xGA': 1.40, 'PPDA': 10.2}, # 🎯 파르마 실질 스탯 보강
-            "Roma": {'xG': 1.65, 'xGA': 1.25, 'PPDA': 10.5}, "Cremonese": {'xG': 1.10, 'xGA': 1.50, 'PPDA': 11.5},
-            "Crystal Palace": {'xG': 1.20, 'xGA': 1.40, 'PPDA': 12.5}, "Wolverhampton Wanderers": {'xG': 1.15, 'xGA': 1.55, 'PPDA': 13.0},
-            "Genoa": {'xG': 1.10, 'xGA': 1.35, 'PPDA': 13.2}, "Torino": {'xG': 1.25, 'xGA': 1.15, 'PPDA': 12.1},
-        }
+    """[V10.2] Selenium 의존성 제거 — Streamlit Cloud 호환"""
+    # Streamlit Cloud에는 Chrome이 없으므로 백업 데이터 직접 사용
+    # 로컬 실행 시에도 안정성을 위해 백업 데이터 우선 사용
+    core_stats = {
+        "Juventus": {'xG': 1.85, 'xGA': 0.70, 'PPDA': 9.2}, "Como": {'xG': 1.15, 'xGA': 1.35, 'PPDA': 10.8},
+        "Aston Villa": {'xG': 1.65, 'xGA': 1.15, 'PPDA': 10.5}, "Leeds": {'xG': 1.40, 'xGA': 1.25, 'PPDA': 10.2},
+        "Brentford": {'xG': 1.45, 'xGA': 1.50, 'PPDA': 12.0}, "Brighton": {'xG': 1.60, 'xGA': 1.35, 'PPDA': 9.8},
+        "West Ham": {'xG': 1.35, 'xGA': 1.55, 'PPDA': 13.5}, "Bournemouth": {'xG': 1.40, 'xGA': 1.45, 'PPDA': 11.8},
+        "Cagliari": {'xG': 1.05, 'xGA': 1.60, 'PPDA': 14.5}, "Lazio": {'xG': 1.55, 'xGA': 1.10, 'PPDA': 10.2},
+        "Manchester City": {'xG': 2.45, 'xGA': 0.85, 'PPDA': 8.5}, "Newcastle United": {'xG': 1.55, 'xGA': 1.35, 'PPDA': 10.5},
+        "Nottingham Forest": {'xG': 1.10, 'xGA': 1.65, 'PPDA': 14.2}, "Liverpool": {'xG': 2.30, 'xGA': 0.95, 'PPDA': 8.8},
+        "Atalanta": {'xG': 1.95, 'xGA': 1.20, 'PPDA': 9.5}, "Napoli": {'xG': 1.75, 'xGA': 1.05, 'PPDA': 10.1},
+        "Tottenham": {'xG': 1.85, 'xGA': 1.45, 'PPDA': 9.0}, "Arsenal": {'xG': 2.10, 'xGA': 0.80, 'PPDA': 8.2},
+        "AC Milan": {'xG': 1.80, 'xGA': 1.10, 'PPDA': 9.8}, "Parma": {'xG': 1.65, 'xGA': 1.40, 'PPDA': 10.2},
+        "Roma": {'xG': 1.65, 'xGA': 1.25, 'PPDA': 10.5}, "Cremonese": {'xG': 1.10, 'xGA': 1.50, 'PPDA': 11.5},
+        "Crystal Palace": {'xG': 1.20, 'xGA': 1.40, 'PPDA': 12.5}, "Wolverhampton Wanderers": {'xG': 1.15, 'xGA': 1.55, 'PPDA': 13.0},
+        "Genoa": {'xG': 1.10, 'xGA': 1.35, 'PPDA': 13.2}, "Torino": {'xG': 1.25, 'xGA': 1.15, 'PPDA': 12.1},
+        "Chelsea": {'xG': 1.70, 'xGA': 1.15, 'PPDA': 9.5}, "Manchester Utd": {'xG': 1.50, 'xGA': 1.30, 'PPDA': 10.8},
+        "Fulham": {'xG': 1.30, 'xGA': 1.25, 'PPDA': 11.5}, "Everton": {'xG': 1.05, 'xGA': 1.45, 'PPDA': 13.0},
+        "Sunderland": {'xG': 1.20, 'xGA': 1.30, 'PPDA': 12.0}, "Leicester": {'xG': 1.25, 'xGA': 1.40, 'PPDA': 12.5},
+        # 유럽 대회 팀
+        "Fiorentina": {'xG': 1.55, 'xGA': 1.10, 'PPDA': 10.0}, "Bologna": {'xG': 1.45, 'xGA': 1.15, 'PPDA': 10.5},
+        "Celta Vigo": {'xG': 1.30, 'xGA': 1.35, 'PPDA': 11.5}, "Stuttgart": {'xG': 1.60, 'xGA': 1.20, 'PPDA': 10.0},
+        "Lille": {'xG': 1.50, 'xGA': 1.05, 'PPDA': 9.8}, "Celtic": {'xG': 1.80, 'xGA': 0.90, 'PPDA': 9.0},
+        "AZ Alkmaar": {'xG': 1.55, 'xGA': 1.15, 'PPDA': 10.2}, "Genk": {'xG': 1.45, 'xGA': 1.20, 'PPDA': 10.5},
+        "Fenerbahce": {'xG': 1.60, 'xGA': 1.00, 'PPDA': 9.5}, "PAOK": {'xG': 1.35, 'xGA': 1.15, 'PPDA': 10.8},
+        "Dinamo Zagreb": {'xG': 1.50, 'xGA': 1.10, 'PPDA': 10.0}, "Brann": {'xG': 1.20, 'xGA': 1.30, 'PPDA': 12.0},
+        "Viktoria Plzen": {'xG': 1.35, 'xGA': 1.20, 'PPDA': 11.0}, "Panathinaikos": {'xG': 1.30, 'xGA': 1.15, 'PPDA': 11.0},
+        "Ferencvaros": {'xG': 1.55, 'xGA': 1.05, 'PPDA': 9.8}, "Ludogorets": {'xG': 1.40, 'xGA': 1.10, 'PPDA': 10.5},
+        "Red Star": {'xG': 1.50, 'xGA': 1.00, 'PPDA': 10.0}, "Omonia Nicosia": {'xG': 1.20, 'xGA': 1.30, 'PPDA': 12.0},
+        "Rijeka": {'xG': 1.25, 'xGA': 1.25, 'PPDA': 11.5}, "Celje": {'xG': 1.15, 'xGA': 1.35, 'PPDA': 12.5},
+        "Samsunspor": {'xG': 1.20, 'xGA': 1.25, 'PPDA': 12.0}, "Shkendija": {'xG': 0.90, 'xGA': 1.50, 'PPDA': 14.0},
+        "Jagiellonia": {'xG': 1.10, 'xGA': 1.40, 'PPDA': 13.0}, "Drita": {'xG': 0.85, 'xGA': 1.55, 'PPDA': 14.5},
+        "Lausanne-Sport": {'xG': 1.15, 'xGA': 1.30, 'PPDA': 12.5}, "Sigma Olomouc": {'xG': 1.10, 'xGA': 1.35, 'PPDA': 13.0},
+        "Noah": {'xG': 0.80, 'xGA': 1.60, 'PPDA': 15.0},
+        # 추가 주요 팀
+        "Real Madrid": {'xG': 2.30, 'xGA': 0.80, 'PPDA': 8.0}, "Barcelona": {'xG': 2.20, 'xGA': 0.90, 'PPDA': 8.5},
+        "Atletico Madrid": {'xG': 1.65, 'xGA': 0.85, 'PPDA': 9.5}, "Bayern Munich": {'xG': 2.40, 'xGA': 0.95, 'PPDA': 8.0},
+        "Bayer Leverkusen": {'xG': 2.10, 'xGA': 0.90, 'PPDA': 8.2}, "Borussia Dortmund": {'xG': 1.80, 'xGA': 1.10, 'PPDA': 9.5},
+        "RB Leipzig": {'xG': 1.70, 'xGA': 1.05, 'PPDA': 9.8}, "Paris Saint Germain": {'xG': 2.30, 'xGA': 0.85, 'PPDA': 8.3},
+        "Monaco": {'xG': 1.55, 'xGA': 1.10, 'PPDA': 10.0}, "Inter": {'xG': 1.90, 'xGA': 0.85, 'PPDA': 9.2},
+    }
     return core_stats
 
 # ------------------------------------------------------------------------------
