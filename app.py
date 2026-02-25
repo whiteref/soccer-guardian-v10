@@ -475,7 +475,7 @@ def load_xgboost_model():
     # 7. Isolation Forest (함정 감지 유지)
     win_data = X_train[y_train == 2]
     if len(win_data) > 10:
-        iso_forest = IsolationForest(contamination=0.15, random_state=42)
+        iso_forest = IsolationForest(contamination=0.05, random_state=42)  # 🔧 [V10.2] 0.15→0.05 (과민 방지)
         iso_forest.fit(win_data)
     else:
         iso_forest = None
@@ -598,12 +598,11 @@ def predict_match_ml(models, home, away, h_stat, a_stat, fusion_data):
             h_prob += adj
             a_prob -= adj
     
-    # [V10.2] Isolation Forest — Deep Trap (온건 버전)
-    if iso_forest is not None:
+    # [V10.2] Isolation Forest — Deep Trap (온건 버전, PUBLIC_FAVORITES만)
+    if iso_forest is not None and home in PUBLIC_FAVORITES:
         is_anomaly = iso_forest.predict(X_test)[0]
         if is_anomaly == -1:
             deep_trap_triggered = True
-            # 🔧 [V10.2] 25% → 8% (과격한 삭감 제거)
             trap_adj = h_prob * 0.08
             h_prob -= trap_adj
             d_prob += trap_adj * 0.6
