@@ -3,7 +3,7 @@ import json
 import boto3
 from datetime import datetime
 
-KALMAN_STORE = "/home/white/.gemini/antigravity/brain/v13_kalman_states.json"
+KALMAN_STORE = "v13_kalman_states.json"
 
 class KalmanGuardianEngine:
     """
@@ -29,9 +29,12 @@ class KalmanGuardianEngine:
         return {} # {team_name: [estimate, error_covariance]}
 
     def _save_states(self):
-        with open(KALMAN_STORE, 'w') as f:
-            json.dump(self.states, f, indent=4)
-        self._sync_to_r2()
+        try:
+            with open(KALMAN_STORE, 'w') as f:
+                json.dump(self.states, f, indent=4)
+            self._sync_to_r2()
+        except:
+            pass  # Streamlit Cloud 등 읽기전용 환경에서는 저장 생략
 
     def _get_r2_client(self):
         r2_acc = os.getenv("R2_ACCESS_KEY_ID")
